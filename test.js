@@ -14,9 +14,15 @@ const userSessions = new Map();
 async function getBrowser() {
     if (!browser) {
         browser = await chromium.launch({
-            headless: false, // UI dekhne ke liye false rakhein
-            channel: 'chrome',
-            args: ['--disable-blink-features=AutomationControlled']
+            // Cloud servers ke liye headless hamesha true hona chahiye
+            headless: true, 
+            // 'channel: chrome' hata kar default chromium use karein
+            args: [
+                '--disable-blink-features=AutomationControlled',
+                '--no-sandbox', 
+                '--disable-setuid-sandbox',
+                '--disable-dev-shm-usage' // Memory crash se bachne ke liye
+            ]
         });
     }
     return browser;
