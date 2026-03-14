@@ -215,6 +215,7 @@
 const express = require("express")
 const puppeteer = require("puppeteer-extra")
 const Stealth = require("puppeteer-extra-plugin-stealth")
+require('dotenv').config();
 
 puppeteer.use(Stealth())
 
