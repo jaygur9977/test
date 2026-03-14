@@ -317,6 +317,9 @@ async function startBrowser(){
   waitUntil:"domcontentloaded"
  })
 
+ await page.screenshot({ path: 'public/debug.png' }); 
+console.log("Screenshot saved as debug.png");
+
  console.log("Browser ready")
 }
 
@@ -329,9 +332,13 @@ async function getReply(){
 
  while(stable<5){
 
+    await page.screenshot({ path: 'public/debug2.png' }); 
+console.log("Screenshot saved as debug.png");
+
   const text = await page.evaluate(()=>{
 
    const blocks=document.querySelectorAll('[data-message-author-role="assistant"]')
+   
 
    if(!blocks.length) return ""
 
@@ -374,6 +381,8 @@ app.post("/chat",async(req,res)=>{
   await startBrowser()
 
   await page.waitForSelector("textarea",{timeout:60000})
+  await page.screenshot({ path: 'public/debug3.png' }); 
+console.log("Screenshot saved as debug.png");
 
   await page.click("textarea")
 
