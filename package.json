@@ -5,7 +5,7 @@
   "main": "test.js",
   "scripts": {
    "start": "node test.js",
-    "postinstall": "node node_modules/puppeteer/install.mjs"
+    "postinstall": "PUPPETEER_CACHE_DIR=./.cache/puppeteer node node_modules/puppeteer/install.mjs"
     
   },
   "keywords": [],

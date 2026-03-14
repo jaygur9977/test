@@ -294,14 +294,20 @@ async function startBrowser(){
 
  sendStep(3,"Opening ChatGPT")
 
+ const path = require("path");
 
 browser = await puppeteer.launch({
-  executablePath: puppeteer.executablePath(),
+  executablePath: path.join(
+    process.cwd(),
+    ".cache/puppeteer/chrome/linux-127.0.6533.88/chrome-linux64/chrome"
+  ),
   headless: true,
   args: [
     "--no-sandbox",
     "--disable-setuid-sandbox",
-    "--disable-dev-shm-usage"
+    "--disable-dev-shm-usage",
+    "--single-process",
+    "--no-zygote"
   ]
 });
 
