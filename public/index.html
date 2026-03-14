@@ -246,39 +246,57 @@ el.classList.add("active")
 }
 
 /* ---------- SEND PROMPT ---------- */
+/* ---------- SEND PROMPT ---------- */
+async function send() {
+    resetSteps();
 
-async function send(){
+    const promptInput = document.getElementById("prompt");
+    const prompt = promptInput.value;
+    const output = document.getElementById("output");
 
-resetSteps()
+    if (!prompt.trim()) {
+        alert("Please enter a prompt!");
+        return;
+    }
 
-const prompt=document.getElementById("prompt").value
-const output=document.getElementById("output")
+    output.innerText = "Processing... Please wait.";
 
-output.innerText="processing..."
+    try {
+        console.log("Sending prompt to backend:", prompt);
 
-const res=await fetch("/chat",{
+        const res = await fetch("/chat", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({ message: prompt })
+        });
 
-method:"POST",
-headers:{
-"Content-Type":"application/json"
-},
-body:JSON.stringify({message:prompt})
+        // Backend se data receive karein
+        const data = await res.json();
+        console.log("Backend Response:", data);
 
-})
+        // UI update karein
+        if (data.reply) {
+            output.innerText = data.reply;
+        } else {
+            output.innerText = "No reply received from AI.";
+        }
 
-const data=await res.json()
+        /* Mark all steps as done */
+        for (let i = 1; i <= 6; i++) {
+            const el = document.getElementById("step" + i);
+            if (el) {
+                el.classList.remove("active", "pending");
+                el.classList.add("done");
+            }
+        }
 
-output.innerText=data.reply
-
-/* mark all done */
-
-for(let i=1;i<=6;i++){
-
-document.getElementById("step"+i).classList.remove("active")
-document.getElementById("step"+i).classList.add("done")
-
-}
-
+    } catch (err) {
+        console.error("Fetch Error:", err);
+        output.innerText = "Error: " + err.message;
+        document.getElementById("errorBox").innerText = "Frontend Error: " + err.message;
+    }
 }
 
 /* ---------- DESTROY SESSION ---------- */

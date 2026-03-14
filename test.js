@@ -308,6 +308,7 @@ async function startBrowser() {
       waitUntil: "networkidle2",
       timeout: 60000 
     });
+     await page.screenshot({path:"debug.png"})
 
     console.log("Browserless connection ready");
   } catch (err) {
@@ -341,6 +342,7 @@ app.post("/chat", async (req, res) => {
     // 1. Selector ko zyada specific banayein aur wait karein
     const promptSelector = 'textarea'; 
     await page.waitForSelector(promptSelector, { timeout: 60000 });
+     await page.screenshot({path:"debug2.png"})
 
     // 2. JS Injection use karein value set karne ke liye (Ye "Not Clickable" error ko bypass kar deta hai)
     await page.evaluate((sel, msg) => {
@@ -363,13 +365,16 @@ app.post("/chat", async (req, res) => {
     // 3. Thoda wait karke Enter press karein
     await new Promise(r => setTimeout(r, 500));
     await page.keyboard.press("Enter");
+     await page.screenshot({path:"debug3.png"})
 
     sendStep(5, "Fetching result");
     const reply = await getReply();
 
     sendStep(6, "Output generated");
     busy = false;
+    console.log("Sending to UI:", reply);
     res.json({ reply });
+     await page.screenshot({path:"debug4.png"})
 
   } catch (e) {
     busy = false;
@@ -413,6 +418,7 @@ async function getReply(){
   previous=text
 
   await new Promise(r=>setTimeout(r,800))
+   await page.screenshot({path:"debug5.png"})
 
  }
 
@@ -430,6 +436,7 @@ app.post("/destroy",async(req,res)=>{
    console.log("Destroying session")
 
    await browser.close()
+    await page.screenshot({path:"debug6.png"})
 
    browser=null
    page=null
