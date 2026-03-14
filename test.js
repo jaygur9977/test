@@ -312,14 +312,9 @@ async function startBrowser(){
   height:800
  })
 
- browser = await puppeteer.launch({
-  executablePath: "/opt/render/.cache/puppeteer/chrome/linux-127.0.6533.88/chrome-linux64/chrome",
-  headless: true,
-  args: [
-    "--no-sandbox",
-    "--disable-setuid-sandbox"
-  ]
-});
+ await page.setUserAgent(
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/122 Safari/537.36"
+ )
 
  await page.goto("https://chatgpt.com/",{
   waitUntil:"domcontentloaded"
