@@ -294,22 +294,16 @@ async function startBrowser(){
 
  sendStep(3,"Opening ChatGPT")
 
- const isProduction = process.env.NODE_ENV === 'production';
-
-  browser = await puppeteer.launch({
-    // Agar local pe chala rahe ho to default, Render pe ho to manual path
-    executablePath: isProduction 
-      ? '/opt/render/project/src/.cache/puppeteer/chrome/linux-127.0.6533.88/chrome-linux64/chrome' 
-      : puppeteer.executablePath(),
-    headless: true,
-    args: [
-      "--no-sandbox",
-      "--disable-setuid-sandbox",
-      "--disable-dev-shm-usage",
-      "--single-process", // Render memory management ke liye zaroori hai
-      "--no-zygote"
-    ]
-  });
+ browser = await puppeteer.launch({
+  headless:true,
+  args:[
+   "--no-sandbox",
+   "--disable-setuid-sandbox",
+   "--disable-dev-shm-usage",
+   "--single-process",
+   "--no-zygote"
+  ]
+ })
 
  page = await browser.newPage()
 
