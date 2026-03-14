@@ -334,45 +334,24 @@ app.post("/chat", async (req, res) => {
   try {
     busy = true;
     touch();
+    
+sendStep(2,"Prompt sent")
 
-    sendStep(2, "Prompt sent");
+  await startBrowser()
 
-    // Yahan await lagaya hai, agar ye fail hoga toh catch block mein chala jayega
-    await startBrowser();
+  await page.waitForSelector("textarea",{timeout:60000})
 
-    // Extra Safety Check
-    if (!page) throw new Error("Browser page is not initialized properly");
+  await page.click("textarea")
 
-    const promptSelector = 'textarea[id="prompt-textarea"]'; // Zyada specific selector
-    await page.waitForSelector(promptSelector, { timeout: 60000 });
-
-    // 1. Scroll into view (taaki element screen par ho)
-    await page.evaluate((sel) => {
-      const el = document.querySelector(sel);
-      if (el) el.scrollIntoView();
-    }, promptSelector);
-
-    // 2. Click ki jagah Focus use karein aur direct value set karein (Zyada stable hai)
-    await page.evaluate((sel, msg) => {
-      const el = document.querySelector(sel);
-      if (el) {
-        el.focus();
-        // Direct value set karna "Not clickable" error ko bypass kar deta hai
-        if (el.tagName === 'TEXTAREA') {
-          el.value = msg;
-        } else {
-          el.innerText = msg;
-        }
-        // Input event trigger karein taaki 'Enter' button enable ho jaye
-        el.dispatchEvent(new Event('input', { bubbles: true }));
-      }
-    }, promptSelector, message);
+  await page.type("textarea",message,{
+   delay:40+Math.random()*60
+  })
 
     sendStep(4, "Prompt injected");
 
     // 3. Keyboard press se pehle thoda wait karein
-    await new Promise(r => setTimeout(r, 500));
-    await page.keyboard.press("Enter");
+    await page.keyboard.press("Enter")
+
 
     sendStep(5, "Fetching result");
     const reply = await getReply();
