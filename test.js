@@ -339,32 +339,36 @@ app.post("/chat", async (req, res) => {
 
     await startBrowser();
 
-    // 1. Selector ko zyada specific banayein aur wait karein
-    const promptSelector = 'textarea'; 
-    await page.waitForSelector(promptSelector, { timeout: 60000 });
-     await page.screenshot({path:"debug2.png"})
+  // ... startBrowser() ke baad ...
 
-    // 2. JS Injection use karein value set karne ke liye (Ye "Not Clickable" error ko bypass kar deta hai)
+    const promptSelector = 'textarea';
+    await page.waitForSelector(promptSelector, { timeout: 60000 });
+    await new Promise(r => setTimeout(r, 1000)); // Thoda extra wait
+
+    // Injection aur Click ek saath
     await page.evaluate((sel, msg) => {
       const el = document.querySelector(sel);
       if (el) {
         el.focus();
-        // Direct value set karna safe hai
-        if (el.tagName === 'TEXTAREA') el.value = msg;
-        else el.innerText = msg;
-        
-        // Input event trigger karna zaroori hai taaki 'Send' button enable ho jaye
+        el.value = msg;
         el.dispatchEvent(new Event('input', { bubbles: true }));
-      } else {
-        throw new Error("Textarea not found in DOM");
+        
+        // Enter maarne ke bajaye 'Send' button dhoond kar click karo (Zyada safe hai)
+        setTimeout(() => {
+          const buttons = document.querySelectorAll('button');
+          const sendBtn = Array.from(buttons).find(b => b.querySelector('svg') || b.getAttribute('data-testid') === 'send-button');
+          if (sendBtn) sendBtn.click();
+        }, 500);
       }
     }, promptSelector, message);
 
-    sendStep(4, "Prompt injected");
-
-    // 3. Thoda wait karke Enter press karein
-    await new Promise(r => setTimeout(r, 500));
-    await page.keyboard.press("Enter");
+    // Enter press ko backup ki tarah rakhein agar button na mile
+    await new Promise(r => setTimeout(r, 1000));
+    try {
+        await page.keyboard.press("Enter");
+    } catch (e) {
+        console.log("Keyboard failed, but evaluate might have worked");
+    }
      await page.screenshot({path:"debug3.png"})
 
     sendStep(5, "Fetching result");
@@ -392,44 +396,44 @@ app.post("/chat", async (req, res) => {
 });
 /* ---------- SCRAPE RESPONSE ---------- */
 
-/* ---------- SCRAPE RESPONSE ---------- */
 async function getReply() {
     let previous = "";
     let stable = 0;
-    let maxAttempts = 30; // 30 attempts max (approx 24-30 seconds)
     let attempts = 0;
 
-    console.log("Waiting for ChatGPT to start typing...");
-
-    while (stable < 5 && attempts < maxAttempts) {
-        const text = await page.evaluate(() => {
-            const blocks = document.querySelectorAll('[data-message-author-role="assistant"]');
-            if (!blocks.length) return "";
-            // Latest block ka text nikalna
-            return blocks[blocks.length - 1].innerText.trim();
-        });
-
-        if (text !== "" && text === previous) {
-            stable++;
-        } else if (text !== "") {
-            stable = 0; // Agar abhi bhi badal raha hai toh reset
-            console.log("ChatGPT is typing... current length:", text.length);
+    while (stable < 5 && attempts < 30) {
+        // ZAROORI: Check karein ki page crash toh nahi hua
+        if (!page || page.isClosed()) {
+            console.log("LOG: Page closed during scraping!");
+            return previous || "Error: Session Closed";
         }
 
-        previous = text;
+        try {
+            const text = await page.evaluate(() => {
+                // ChatGPT ke multiple selectors check karein
+                const selectors = ['[data-message-author-role="assistant"]', '.markdown', '.prose'];
+                for (let s of selectors) {
+                    const el = document.querySelectorAll(s);
+                    if (el.length) return el[el.length - 1].innerText.trim();
+                }
+                return "";
+            });
+
+            if (text !== "" && text === previous) {
+                stable++;
+            } else if (text !== "") {
+                stable = 0;
+                console.log("ChatGPT typing... length:", text.length);
+            }
+            previous = text;
+        } catch (err) {
+            console.log("Evaluate failed in getReply:", err.message);
+            break; 
+        }
+
         attempts++;
-        await new Promise(r => setTimeout(r, 1000)); // 1 second gap
+        await new Promise(r => setTimeout(r, 1000));
     }
-
-    if (previous === "") {
-        console.log("LOG: No text found in assistant blocks.");
-    } else {
-        console.log("------------------------------------------");
-        console.log("FINAL ANSWER CAPTURED IN LOGS:");
-        console.log(previous);
-        console.log("------------------------------------------");
-    }
-
     return previous;
 }
 
