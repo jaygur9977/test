@@ -343,15 +343,35 @@ app.post("/chat", async (req, res) => {
     // Extra Safety Check
     if (!page) throw new Error("Browser page is not initialized properly");
 
-    const promptSelector = "textarea";
+    const promptSelector = 'textarea[id="prompt-textarea"]'; // Zyada specific selector
     await page.waitForSelector(promptSelector, { timeout: 60000 });
 
-    await page.click(promptSelector);
-    await page.type(promptSelector, message, {
-      delay: 40 + Math.random() * 60
-    });
+    // 1. Scroll into view (taaki element screen par ho)
+    await page.evaluate((sel) => {
+      const el = document.querySelector(sel);
+      if (el) el.scrollIntoView();
+    }, promptSelector);
+
+    // 2. Click ki jagah Focus use karein aur direct value set karein (Zyada stable hai)
+    await page.evaluate((sel, msg) => {
+      const el = document.querySelector(sel);
+      if (el) {
+        el.focus();
+        // Direct value set karna "Not clickable" error ko bypass kar deta hai
+        if (el.tagName === 'TEXTAREA') {
+          el.value = msg;
+        } else {
+          el.innerText = msg;
+        }
+        // Input event trigger karein taaki 'Enter' button enable ho jaye
+        el.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+    }, promptSelector, message);
 
     sendStep(4, "Prompt injected");
+
+    // 3. Keyboard press se pehle thoda wait karein
+    await new Promise(r => setTimeout(r, 500));
     await page.keyboard.press("Enter");
 
     sendStep(5, "Fetching result");
