@@ -294,16 +294,16 @@ async function startBrowser(){
 
  sendStep(3,"Opening ChatGPT")
 
- browser = await puppeteer.launch({
-  headless:true,
-  args:[
-   "--no-sandbox",
-   "--disable-setuid-sandbox",
-   "--disable-dev-shm-usage",
-   "--single-process",
-   "--no-zygote"
+
+browser = await puppeteer.launch({
+  executablePath: puppeteer.executablePath(),
+  headless: true,
+  args: [
+    "--no-sandbox",
+    "--disable-setuid-sandbox",
+    "--disable-dev-shm-usage"
   ]
- })
+});
 
  page = await browser.newPage()
 
