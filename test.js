@@ -1,148 +1,280 @@
-const express = require("express");
-const { chromium } = require("playwright");
-const path = require("path");
+// const express = require("express");
+// const { chromium } = require("playwright");
+// const path = require("path");
 
-const app = express();
-app.use(express.json());
-app.use(express.static("public"));
+// const app = express();
+// app.use(express.json());
+// app.use(express.static("public"));
 
-let browser = null;
-let context = null;
-let page = null;
-let working = false;
+// let browser = null;
+// let context = null;
+// let page = null;
+// let working = false;
 
-async function launchBrowser() {
+// async function launchBrowser() {
 
-  if (browser) return;
+//   if (browser) return;
 
-  browser = await chromium.launch({
-    headless: false,
-    args: [
-      "--no-sandbox",
-      "--disable-setuid-sandbox",
-      "--disable-dev-shm-usage",
-      "--disable-blink-features=AutomationControlled"
-    ]
-  });
+//   browser = await chromium.launch({
+//     headless: true,
+//     args: [
+//       "--no-sandbox",
+//       "--disable-setuid-sandbox",
+//       "--disable-dev-shm-usage",
+//       "--disable-blink-features=AutomationControlled"
+//     ]
+//   });
 
-  context = await browser.newContext({
-    viewport: null,
-    locale: "en-US",
-    timezoneId: "Asia/Kolkata",
-    userAgent:
-      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/122 Safari/537.36"
-  });
+//   context = await browser.newContext({
+//     viewport: null,
+//     locale: "en-US",
+//     timezoneId: "Asia/Kolkata",
+//     userAgent:
+//       "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/122 Safari/537.36"
+//   });
 
-  await context.addInitScript(() => {
-    Object.defineProperty(navigator, "webdriver", {
-      get: () => undefined
-    });
-  });
+//   await context.addInitScript(() => {
+//     Object.defineProperty(navigator, "webdriver", {
+//       get: () => undefined
+//     });
+//   });
 
-  page = await context.newPage();
+//   page = await context.newPage();
 
-  await page.goto("https://chatgpt.com/", {
-    waitUntil: "domcontentloaded"
-  });
+//   await page.goto("https://chatgpt.com/", {
+//     waitUntil: "domcontentloaded"
+//   });
 
-  await page.waitForSelector("textarea", { timeout: 60000 });
+//   await page.waitForSelector("textarea", { timeout: 60000 });
 
-  console.log("AI browser ready");
+//   console.log("AI browser ready");
+// }
+
+// async function getLastMessage() {
+//   return await page.evaluate(() => {
+//     const msgs = document.querySelectorAll(
+//       '[data-message-author-role="assistant"]'
+//     );
+
+//     if (!msgs.length) return "";
+
+//     return msgs[msgs.length - 1].innerText.trim();
+//   });
+// }
+
+// async function waitForStable() {
+
+//   let prev = "";
+//   let stable = 0;
+
+//   while (stable < 5) {
+
+//     const txt = await getLastMessage();
+
+//     if (txt === prev) stable++;
+//     else stable = 0;
+
+//     prev = txt;
+
+//     await page.waitForTimeout(800);
+//   }
+
+//   return prev;
+// }
+
+// async function sendPrompt(prompt) {
+
+//   await page.waitForSelector("textarea");
+
+//   await page.click("textarea");
+
+//   await page.keyboard.type(prompt, {
+//     delay: 30 + Math.random() * 60
+//   });
+
+//   await page.keyboard.press("Enter");
+
+//   const reply = await waitForStable();
+
+//   return reply;
+// }
+
+// app.post("/chat", async (req, res) => {
+
+//   if (working)
+//     return res.json({
+//       success: false,
+//       message: "AI busy"
+//     });
+
+//   const { message } = req.body;
+
+//   try {
+
+//     working = true;
+
+//     await launchBrowser();
+
+//     const reply = await sendPrompt(message);
+
+//     working = false;
+
+//     res.json({
+//       success: true,
+//       reply
+//     });
+
+//   } catch (err) {
+
+//     working = false;
+
+//     console.log(err);
+
+//     browser = null;
+
+//     res.json({
+//       success: false,
+//       reply: "automation error"
+//     });
+//   }
+// });
+
+// app.get("/ping", (req, res) => {
+//   res.send("alive");
+// });
+
+// app.listen(3000, () => {
+//   console.log("server running http://localhost:3000");
+// });
+
+
+
+
+
+
+const express = require("express")
+const puppeteer = require("puppeteer-extra")
+const Stealth = require("puppeteer-extra-plugin-stealth")
+
+puppeteer.use(Stealth())
+
+const app = express()
+
+app.use(express.json())
+app.use(express.static("public"))
+
+let browser
+let page
+let busy=false
+
+async function startBrowser(){
+
+ if(browser) return
+
+ browser = await puppeteer.launch({
+  headless:true,
+  args:[
+   "--no-sandbox",
+   "--disable-setuid-sandbox",
+   "--disable-dev-shm-usage"
+  ]
+ })
+
+ page = await browser.newPage()
+
+ await page.setViewport({
+  width:1280,
+  height:800
+ })
+
+ await page.setUserAgent(
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/122 Safari/537.36"
+ )
+
+ await page.goto("https://chatgpt.com/",{
+  waitUntil:"domcontentloaded"
+ })
+
+ console.log("browser ready")
+
 }
 
-async function getLastMessage() {
-  return await page.evaluate(() => {
-    const msgs = document.querySelectorAll(
-      '[data-message-author-role="assistant"]'
-    );
+async function getReply(){
 
-    if (!msgs.length) return "";
+ let previous=""
+ let stable=0
 
-    return msgs[msgs.length - 1].innerText.trim();
-  });
-}
+ while(stable<5){
 
-async function waitForStable() {
+  const text = await page.evaluate(()=>{
 
-  let prev = "";
-  let stable = 0;
+   const blocks=document.querySelectorAll('[data-message-author-role="assistant"]')
 
-  while (stable < 5) {
+   if(!blocks.length) return ""
 
-    const txt = await getLastMessage();
+   return blocks[blocks.length-1].innerText
 
-    if (txt === prev) stable++;
-    else stable = 0;
+  })
 
-    prev = txt;
-
-    await page.waitForTimeout(800);
+  if(text===previous){
+   stable++
+  }else{
+   stable=0
   }
 
-  return prev;
+  previous=text
+
+  await new Promise(r=>setTimeout(r,800))
+
+ }
+
+ return previous
 }
 
-async function sendPrompt(prompt) {
+app.post("/chat", async(req,res)=>{
 
-  await page.waitForSelector("textarea");
+ if(busy){
+  return res.json({reply:"AI busy"})
+ }
 
-  await page.click("textarea");
+ const {message}=req.body
 
-  await page.keyboard.type(prompt, {
-    delay: 30 + Math.random() * 60
-  });
+ try{
 
-  await page.keyboard.press("Enter");
+  busy=true
 
-  const reply = await waitForStable();
+  await startBrowser()
 
-  return reply;
-}
+  await page.waitForSelector("textarea")
 
-app.post("/chat", async (req, res) => {
+  await page.type("textarea",message,{
+   delay:40+Math.random()*50
+  })
 
-  if (working)
-    return res.json({
-      success: false,
-      message: "AI busy"
-    });
+  await page.keyboard.press("Enter")
 
-  const { message } = req.body;
+  const reply = await getReply()
 
-  try {
+  busy=false
 
-    working = true;
+  res.json({reply})
 
-    await launchBrowser();
+ }catch(e){
 
-    const reply = await sendPrompt(message);
+  busy=false
 
-    working = false;
+  console.log(e)
 
-    res.json({
-      success: true,
-      reply
-    });
+  res.json({reply:"automation error"})
 
-  } catch (err) {
+ }
 
-    working = false;
+})
 
-    console.log(err);
+app.get("/ping",(req,res)=>{
+ res.send("alive")
+})
 
-    browser = null;
-
-    res.json({
-      success: false,
-      reply: "automation error"
-    });
-  }
-});
-
-app.get("/ping", (req, res) => {
-  res.send("alive");
-});
-
-app.listen(3000, () => {
-  console.log("server running http://localhost:3000");
-});
+app.listen(3000,()=>{
+ console.log("server running")
+})
