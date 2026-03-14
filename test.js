@@ -212,9 +212,6 @@
 
 
 
-
-
-
 const express = require("express")
 const puppeteer = require("puppeteer-extra")
 const Stealth = require("puppeteer-extra-plugin-stealth")
@@ -295,7 +292,7 @@ async function startBrowser(){
  sendStep(3,"Opening ChatGPT")
 
  browser = await puppeteer.launch({
-  headless:false,
+  headless:true,
   args:[
    "--no-sandbox",
    "--disable-setuid-sandbox",
