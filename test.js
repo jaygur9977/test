@@ -325,7 +325,6 @@ async function startBrowser() {
 }
 
 /* ---------- CHAT ENDPOINT ---------- */
-
 app.post("/chat", async (req, res) => {
   if (busy) return res.json({ reply: "AI busy" });
 
@@ -334,24 +333,36 @@ app.post("/chat", async (req, res) => {
   try {
     busy = true;
     touch();
-    
-sendStep(2,"Prompt sent")
 
-  await startBrowser()
+    sendStep(2, "Prompt sent");
 
-  await page.waitForSelector("textarea",{timeout:60000})
+    await startBrowser();
 
-  await page.click("textarea")
+    // 1. Selector ko zyada specific banayein aur wait karein
+    const promptSelector = 'textarea'; 
+    await page.waitForSelector(promptSelector, { timeout: 60000 });
 
-  await page.type("textarea",message,{
-   delay:40+Math.random()*60
-  })
+    // 2. JS Injection use karein value set karne ke liye (Ye "Not Clickable" error ko bypass kar deta hai)
+    await page.evaluate((sel, msg) => {
+      const el = document.querySelector(sel);
+      if (el) {
+        el.focus();
+        // Direct value set karna safe hai
+        if (el.tagName === 'TEXTAREA') el.value = msg;
+        else el.innerText = msg;
+        
+        // Input event trigger karna zaroori hai taaki 'Send' button enable ho jaye
+        el.dispatchEvent(new Event('input', { bubbles: true }));
+      } else {
+        throw new Error("Textarea not found in DOM");
+      }
+    }, promptSelector, message);
 
     sendStep(4, "Prompt injected");
 
-    // 3. Keyboard press se pehle thoda wait karein
-    await page.keyboard.press("Enter")
-
+    // 3. Thoda wait karke Enter press karein
+    await new Promise(r => setTimeout(r, 500));
+    await page.keyboard.press("Enter");
 
     sendStep(5, "Fetching result");
     const reply = await getReply();
@@ -363,11 +374,17 @@ sendStep(2,"Prompt sent")
   } catch (e) {
     busy = false;
     console.error("AUTOMATION ERROR:", e.message);
+
+    // Agar session crash hua hai toh objects reset karein
+    if (e.message.includes("Protocol error") || e.message.includes("Target closed")) {
+      browser = null;
+      page = null;
+    }
+
     sendStep("error", e.message, true);
     res.json({ reply: `Error: ${e.message}` });
   }
 });
-
 /* ---------- SCRAPE RESPONSE ---------- */
 
 async function getReply(){
