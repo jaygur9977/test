@@ -285,42 +285,55 @@ function touch(){
 
 /* ---------- START BROWSER ---------- */
 
-async function startBrowser(){
+async function startBrowser() {
+  if (browser) return;
 
- if(browser) return
+  sendStep(3, "Opening ChatGPT");
 
- sendStep(3,"Opening ChatGPT")
+  browser = await puppeteer.launch({
+    headless: true,
+    args: [
+      "--no-sandbox",
+      "--disable-setuid-sandbox",
+      "--disable-dev-shm-usage",
+      "--single-process",
+      "--no-zygote",
+      "--disable-blink-features=AutomationControlled" // Bot detection kam karne ke liye
+    ]
+  });
 
- browser = await puppeteer.launch({
-  headless:true,
-  args:[
-   "--no-sandbox",
-   "--disable-setuid-sandbox",
-   "--disable-dev-shm-usage",
-   "--single-process",
-   "--no-zygote"
-  ]
- })
+  page = await browser.newPage();
 
- page = await browser.newPage()
+  await page.setViewport({ width: 1280, height: 800 });
 
- await page.setViewport({
-  width:1280,
-  height:800
- })
+  await page.setUserAgent(
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
+  );
 
- await page.setUserAgent(
-  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/122 Safari/537.36"
- )
+  // --- Live Monitoring Logic Start ---
+  let shotCount = 1;
+  const shotInterval = setInterval(async () => {
+    if (shotCount <= 10 && page) {
+      try {
+        const fileName = `d${shotCount}.png`;
+        await page.screenshot({ path: `public/${fileName}` });
+        console.log(`Live Debug: ${fileName} saved`);
+        shotCount++;
+      } catch (err) {
+        console.error("Screenshot Error:", err);
+      }
+    } else {
+      clearInterval(shotInterval); // 10 ke baad stop
+      console.log("Monitoring finished.");
+    }
+  }, 3000); // Har 3 second mein
+  // --- Live Monitoring Logic End ---
 
- await page.goto("https://chatgpt.com/",{
-  waitUntil:"domcontentloaded"
- })
+  await page.goto("https://chatgpt.com/", {
+    waitUntil: "networkidle2" // Network shaant hone tak wait karein
+  });
 
- await page.screenshot({ path: 'public/debug.png' }); 
-console.log("Screenshot saved as debug.png");
-
- console.log("Browser ready")
+  console.log("Browser ready");
 }
 
 /* ---------- SCRAPE RESPONSE ---------- */
@@ -332,13 +345,9 @@ async function getReply(){
 
  while(stable<5){
 
-    await page.screenshot({ path: 'public/debug2.png' }); 
-console.log("Screenshot saved as debug.png");
-
   const text = await page.evaluate(()=>{
 
    const blocks=document.querySelectorAll('[data-message-author-role="assistant"]')
-   
 
    if(!blocks.length) return ""
 
@@ -381,8 +390,6 @@ app.post("/chat",async(req,res)=>{
   await startBrowser()
 
   await page.waitForSelector("textarea",{timeout:60000})
-  await page.screenshot({ path: 'public/debug3.png' }); 
-console.log("Screenshot saved as debug.png");
 
   await page.click("textarea")
 
