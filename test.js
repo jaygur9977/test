@@ -285,35 +285,88 @@ function touch(){
 
 /* ---------- START BROWSER ---------- */
 
-async function startBrowser(){
+async function startBrowser() {
+  if (browser && page) return; // Agar pehle se connect hai toh wapas mat karo
 
- if(browser) return
-
- sendStep(3,"Opening ChatGPT")
-try {
+  sendStep(3, "Connecting to Browserless");
+  
+  try {
     const token = process.env.BROWSERLESS_TOKEN;
-    
-    // Yahan hum puppeteer.launch ki jagah connect use karenge
+    if (!token) throw new Error("BROWSERLESS_TOKEN is missing in Render environment variables");
+
     browser = await puppeteer.connect({
       browserWSEndpoint: `wss://chrome.browserless.io?token=${token}`,
     });
 
     page = await browser.newPage();
     await page.setViewport({ width: 1280, height: 800 });
-
-    // Cloudflare bypass ke liye ye zaroori hai
     await page.setUserAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36");
 
+    console.log("Navigating to ChatGPT...");
     await page.goto("https://chatgpt.com/", {
-      waitUntil: "networkidle2" 
+      waitUntil: "networkidle2",
+      timeout: 60000 
     });
 
     console.log("Browserless connection ready");
   } catch (err) {
-    console.error("Browserless Connection Error:", err);
-    sendStep("error", "Failed to connect to browser cloud", true);
+    console.error("Browserless Connection Error:", err.message);
+    
+    // Zaroori: Reset variables on failure
+    browser = null;
+    page = null;
+    
+    sendStep("error", `Cloud Connection Failed: ${err.message}`, true);
+    
+    // Sabse zaroori: Error ko throw karein taaki /chat endpoint ruk jaye
+    throw err; 
   }
 }
+
+/* ---------- CHAT ENDPOINT ---------- */
+
+app.post("/chat", async (req, res) => {
+  if (busy) return res.json({ reply: "AI busy" });
+
+  const { message } = req.body;
+
+  try {
+    busy = true;
+    touch();
+
+    sendStep(2, "Prompt sent");
+
+    // Yahan await lagaya hai, agar ye fail hoga toh catch block mein chala jayega
+    await startBrowser();
+
+    // Extra Safety Check
+    if (!page) throw new Error("Browser page is not initialized properly");
+
+    const promptSelector = "textarea";
+    await page.waitForSelector(promptSelector, { timeout: 60000 });
+
+    await page.click(promptSelector);
+    await page.type(promptSelector, message, {
+      delay: 40 + Math.random() * 60
+    });
+
+    sendStep(4, "Prompt injected");
+    await page.keyboard.press("Enter");
+
+    sendStep(5, "Fetching result");
+    const reply = await getReply();
+
+    sendStep(6, "Output generated");
+    busy = false;
+    res.json({ reply });
+
+  } catch (e) {
+    busy = false;
+    console.error("AUTOMATION ERROR:", e.message);
+    sendStep("error", e.message, true);
+    res.json({ reply: `Error: ${e.message}` });
+  }
+});
 
 /* ---------- SCRAPE RESPONSE ---------- */
 
@@ -348,60 +401,6 @@ async function getReply(){
 
  return previous
 }
-
-/* ---------- CHAT ENDPOINT ---------- */
-
-app.post("/chat",async(req,res)=>{
-
- if(busy){
-  return res.json({reply:"AI busy"})
- }
-
- const {message} = req.body
-
- try{
-
-  busy=true
-  touch()
-
-  sendStep(2,"Prompt sent")
-
-  await startBrowser()
-
-  await page.waitForSelector("textarea",{timeout:60000})
-
-  await page.click("textarea")
-
-  await page.type("textarea",message,{
-   delay:40+Math.random()*60
-  })
-
-  sendStep(4,"Prompt injected")
-
-  await page.keyboard.press("Enter")
-
-  sendStep(5,"Fetching result")
-
-  const reply = await getReply()
-
-  sendStep(6,"Output generated")
-
-  busy=false
-
-  res.json({reply})
-
- }catch(e){
-
-  busy=false
-
-  console.error("AUTOMATION ERROR:",e)
-
-  sendStep("error",e.message,true)
-
-  res.json({reply:"automation error"})
- }
-
-})
 
 /* ---------- DESTROY SESSION ---------- */
 
