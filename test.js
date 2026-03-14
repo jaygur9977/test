@@ -285,55 +285,52 @@ function touch(){
 
 /* ---------- START BROWSER ---------- */
 
-async function startBrowser() {
-  if (browser) return;
+async function startBrowser(){
 
-  sendStep(3, "Opening ChatGPT");
+ if(browser) return
 
-  browser = await puppeteer.launch({
-    headless: true,
-    args: [
-      "--no-sandbox",
-      "--disable-setuid-sandbox",
-      "--disable-dev-shm-usage",
-      "--single-process",
-      "--no-zygote",
-      "--disable-blink-features=AutomationControlled" // Bot detection kam karne ke liye
-    ]
-  });
+ sendStep(3,"Opening ChatGPT")
 
-  page = await browser.newPage();
+ browser = await puppeteer.launch({
+  headless:"shell",
+  args:[
+   "--no-sandbox",
+   "--disable-setuid-sandbox",
+   "--disable-dev-shm-usage",
+   "--single-process",
+   "--no-zygote"
+  ]
+ })
 
-  await page.setViewport({ width: 1280, height: 800 });
+ page = await browser.newPage()
 
-  await page.setUserAgent(
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
-  );
+ await page.setViewport({
+  width:1280,
+  height:800
+ })
 
-  // --- Live Monitoring Logic Start ---
-  let shotCount = 1;
-  const shotInterval = setInterval(async () => {
-    if (shotCount <= 10 && page) {
-      try {
-        const fileName = `d${shotCount}.png`;
-        await page.screenshot({ path: `public/${fileName}` });
-        console.log(`Live Debug: ${fileName} saved`);
-        shotCount++;
-      } catch (err) {
-        console.error("Screenshot Error:", err);
-      }
-    } else {
-      clearInterval(shotInterval); // 10 ke baad stop
-      console.log("Monitoring finished.");
-    }
-  }, 3000); // Har 3 second mein
-  // --- Live Monitoring Logic End ---
 
-  await page.goto("https://chatgpt.com/", {
-    waitUntil: "networkidle2" // Network shaant hone tak wait karein
-  });
+ await page.setExtraHTTPHeaders({
+  'Accept-Language': 'en-US,en;q=0.9',
+  'Referer': 'https://www.google.com/'
+});
 
-  console.log("Browser ready");
+ await page.setUserAgent(
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/123 Safari/537.36"
+ )
+
+ await page.goto("https://chatgpt.com/",{
+  waitUntil:"domcontentloaded"
+ })
+
+ await page.mouse.move(100, 100);
+await page.mouse.move(200, 300);
+await page.mouse.move(400, 200);
+
+ await page.screenshot({ path: 'public/debug.png' }); 
+console.log("Screenshot saved as debug.png");
+
+ console.log("Browser ready")
 }
 
 /* ---------- SCRAPE RESPONSE ---------- */
