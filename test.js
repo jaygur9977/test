@@ -290,47 +290,29 @@ async function startBrowser(){
  if(browser) return
 
  sendStep(3,"Opening ChatGPT")
+try {
+    const token = process.env.BROWSERLESS_TOKEN;
+    
+    // Yahan hum puppeteer.launch ki jagah connect use karenge
+    browser = await puppeteer.connect({
+      browserWSEndpoint: `wss://chrome.browserless.io?token=${token}`,
+    });
 
- browser = await puppeteer.launch({
-  headless:"shell",
-  args:[
-   "--no-sandbox",
-   "--disable-setuid-sandbox",
-   "--disable-dev-shm-usage",
-   "--single-process",
-   "--no-zygote"
-  ]
- })
+    page = await browser.newPage();
+    await page.setViewport({ width: 1280, height: 800 });
 
- page = await browser.newPage()
+    // Cloudflare bypass ke liye ye zaroori hai
+    await page.setUserAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36");
 
- await page.setViewport({
-  width:1280,
-  height:800
- })
+    await page.goto("https://chatgpt.com/", {
+      waitUntil: "networkidle2" 
+    });
 
-
- await page.setExtraHTTPHeaders({
-  'Accept-Language': 'en-US,en;q=0.9',
-  'Referer': 'https://www.google.com/'
-});
-
- await page.setUserAgent(
-  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/123 Safari/537.36"
- )
-
- await page.goto("https://chatgpt.com/",{
-  waitUntil:"domcontentloaded"
- })
-
- await page.mouse.move(100, 100);
-await page.mouse.move(200, 300);
-await page.mouse.move(400, 200);
-
- await page.screenshot({ path: 'public/debug.png' }); 
-console.log("Screenshot saved as debug.png");
-
- console.log("Browser ready")
+    console.log("Browserless connection ready");
+  } catch (err) {
+    console.error("Browserless Connection Error:", err);
+    sendStep("error", "Failed to connect to browser cloud", true);
+  }
 }
 
 /* ---------- SCRAPE RESPONSE ---------- */
