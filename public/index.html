@@ -1,109 +1,8 @@
-<!-- <!DOCTYPE html>
-<html>
-<head>
-<title>AI Prompt Engine</title>
-
-<style>
-
-body{
-font-family:sans-serif;
-background:#0f172a;
-color:white;
-display:flex;
-justify-content:center;
-align-items:center;
-height:100vh;
-}
-
-.box{
-width:420px;
-background:#1e293b;
-padding:25px;
-border-radius:14px;
-}
-
-textarea{
-width:100%;
-height:110px;
-background:#334155;
-border:none;
-padding:10px;
-color:white;
-border-radius:8px;
-}
-
-button{
-width:100%;
-margin-top:12px;
-padding:12px;
-border:none;
-border-radius:8px;
-background:#2563eb;
-color:white;
-font-weight:bold;
-}
-
-#output{
-margin-top:15px;
-background:#020617;
-padding:12px;
-border-radius:8px;
-white-space:pre-wrap;
-}
-
-</style>
-</head>
-
-<body>
-
-<div class="box">
-
-<h2>Prompt Engine</h2>
-
-<textarea id="prompt"></textarea>
-
-<button onclick="send()">Send</button>
-
-<div id="output"></div>
-
-</div>
-
-<script>
-
-async function send(){
-
-const prompt=document.getElementById("prompt").value
-
-const output=document.getElementById("output")
-
-output.innerText="processing..."
-
-const res=await fetch("/chat",{
-method:"POST",
-headers:{'Content-Type':'application/json'},
-body:JSON.stringify({message:prompt})
-})
-
-const data=await res.json()
-
-output.innerText=data.reply
-
-}
-
-</script>
-
-</body>
-</html> -->
-
-
-
-
-
 <!DOCTYPE html>
 <html>
 <head>
 
-<title>AI Automation</title>
+<title>AI Automation Dashboard</title>
 
 <style>
 
@@ -115,6 +14,11 @@ display:flex;
 justify-content:center;
 align-items:center;
 height:100vh
+}
+
+.container{
+display:flex;
+gap:20px
 }
 
 .box{
@@ -141,7 +45,8 @@ padding:12px;
 border:none;
 background:#2563eb;
 color:white;
-border-radius:6px
+border-radius:6px;
+cursor:pointer
 }
 
 #output{
@@ -152,11 +57,80 @@ border-radius:6px;
 white-space:pre-wrap
 }
 
+/* PROCESS PANEL */
+
+.process{
+width:300px;
+background:#1e293b;
+padding:20px;
+border-radius:12px
+}
+
+#steps{
+list-style:none;
+padding:0
+}
+
+.step{
+display:flex;
+align-items:center;
+gap:10px;
+padding:8px;
+margin:6px 0;
+border-radius:6px;
+background:#020617
+}
+
+.step span{
+flex:1
+}
+
+.pending{
+opacity:.5
+}
+
+.active{
+background:#1d4ed8
+}
+
+.done{
+background:#16a34a
+}
+
+/* spinner */
+
+.spinner{
+width:12px;
+height:12px;
+border:2px solid white;
+border-top:2px solid transparent;
+border-radius:50%;
+animation:spin 1s linear infinite
+}
+
+@keyframes spin{
+0%{transform:rotate(0deg)}
+100%{transform:rotate(360deg)}
+}
+
+/* error box */
+
+#errorBox{
+margin-top:12px;
+background:#450a0a;
+padding:10px;
+border-radius:6px;
+color:#fecaca;
+min-height:30px
+}
+
 </style>
 
 </head>
 
 <body>
+
+<div class="container">
 
 <div class="box">
 
@@ -170,28 +144,150 @@ white-space:pre-wrap
 
 </div>
 
+<div class="process">
+
+<h3>Process Monitor</h3>
+
+<ul id="steps">
+
+<li id="step1" class="step pending">
+<div class="spinner"></div>
+<span>Server start</span>
+</li>
+
+<li id="step2" class="step pending">
+<div class="spinner"></div>
+<span>Prompt sent</span>
+</li>
+
+<li id="step3" class="step pending">
+<div class="spinner"></div>
+<span>ChatGPT opened</span>
+</li>
+
+<li id="step4" class="step pending">
+<div class="spinner"></div>
+<span>Prompt injected</span>
+</li>
+
+<li id="step5" class="step pending">
+<div class="spinner"></div>
+<span>Fetching result</span>
+</li>
+
+<li id="step6" class="step pending">
+<div class="spinner"></div>
+<span>Output generated</span>
+</li>
+
+</ul>
+
+<div id="errorBox"></div>
+
+</div>
+
+</div>
+
 <script>
 
+/* ---------- RESET STEPS ---------- */
+
+function resetSteps(){
+
+for(let i=1;i<=6;i++){
+
+const el=document.getElementById("step"+i)
+
+el.classList.remove("done","active")
+el.classList.add("pending")
+
+}
+
+document.getElementById("errorBox").innerText=""
+
+}
+
+/* ---------- REALTIME EVENTS ---------- */
+
+const evt = new EventSource("/events")
+
+evt.onmessage = (event)=>{
+
+const data = JSON.parse(event.data)
+
+if(data.error){
+
+document.getElementById("errorBox").innerText=data.message
+
+return
+
+}
+
+const step=data.step
+
+const el=document.getElementById("step"+step)
+
+if(!el) return
+
+/* previous steps mark done */
+
+for(let i=1;i<step;i++){
+
+document.getElementById("step"+i).classList.remove("active","pending")
+document.getElementById("step"+i).classList.add("done")
+
+}
+
+/* current step active */
+
+el.classList.remove("pending")
+el.classList.add("active")
+
+}
+
+/* ---------- SEND PROMPT ---------- */
+
 async function send(){
+
+resetSteps()
 
 const prompt=document.getElementById("prompt").value
 const output=document.getElementById("output")
 
 output.innerText="processing..."
 
-const res = await fetch("/chat",{
+const res=await fetch("/chat",{
+
 method:"POST",
 headers:{
 "Content-Type":"application/json"
 },
 body:JSON.stringify({message:prompt})
+
 })
 
-const data = await res.json()
+const data=await res.json()
 
 output.innerText=data.reply
 
+/* mark all done */
+
+for(let i=1;i<=6;i++){
+
+document.getElementById("step"+i).classList.remove("active")
+document.getElementById("step"+i).classList.add("done")
+
 }
+
+}
+
+/* ---------- DESTROY SESSION ---------- */
+
+window.addEventListener("beforeunload",()=>{
+
+navigator.sendBeacon("/destroy")
+
+})
 
 </script>
 
