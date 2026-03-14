@@ -174,9 +174,11 @@ async function startBrowser(){
  browser = await puppeteer.launch({
   headless:true,
   args:[
-   "--no-sandbox",
-   "--disable-setuid-sandbox",
-   "--disable-dev-shm-usage"
+  "--no-sandbox",
+  "--disable-setuid-sandbox",
+  "--disable-dev-shm-usage",
+  "--single-process",
+  "--no-zygote"
   ]
  })
 
@@ -261,11 +263,11 @@ app.post("/chat", async(req,res)=>{
 
  }catch(e){
 
-  busy=false
+ console.log("AUTOMATION ERROR:", e)
 
-  console.log(e)
-
-  res.json({reply:"automation error"})
+ res.json({
+  reply:"automation error"
+ })
 
  }
 
