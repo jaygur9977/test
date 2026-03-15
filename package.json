@@ -4,19 +4,13 @@
   "description": "",
   "main": "test.js",
   "scripts": {
-    "start": "node test.js",
-    "postinstall": "node node_modules/puppeteer/install.mjs"
+    "start": "node test.js"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
   "type": "commonjs",
   "dependencies": {
-    "dotenv": "^17.3.1",
-    "express": "^5.2.1",
-    "playwright": "^1.58.2",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
     "puppeteer": "^22.7.1",
-    "puppeteer-core": "^24.39.1",
     "puppeteer-extra": "^3.3.6",
     "puppeteer-extra-plugin-stealth": "^2.11.2"
   }
