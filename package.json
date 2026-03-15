@@ -5,7 +5,7 @@
   "main": "test.js",
   "scripts": {
     "start": "node test.js",
-    "render-postbuild": "npx puppeteer browsers install chrome"
+    "postinstall": "npx puppeteer browsers install chrome"
   },
   "keywords": [],
   "author": "",
