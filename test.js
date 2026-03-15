@@ -1,11 +1,225 @@
-require("dotenv").config()
+// const express = require("express")
+// const puppeteer = require("puppeteer-extra")
+// const Stealth = require("puppeteer-extra-plugin-stealth")
+
+// puppeteer.use(Stealth())
+
+// const app = express()
+
+// app.use(express.json())
+// app.use(express.static("public"))
+
+// /* ---------- GLOBAL ERROR LOGGING ---------- */
+
+// process.on("uncaughtException", (err) => {
+//  console.error("UNCAUGHT EXCEPTION:", err)
+// })
+
+// process.on("unhandledRejection", (err) => {
+//  console.error("UNHANDLED REJECTION:", err)
+// })
+
+// app.use((req,res,next)=>{
+//  console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`)
+//  next()
+// })
+
+// /* ---------- BROWSER STATE ---------- */
+
+// let browser = null
+// let page = null
+// let busy = false
+// let lastActivity = Date.now()
+
+// function touch(){
+//  lastActivity = Date.now()
+// }
+
+// /* ---------- START BROWSER ---------- */
+
+// async function startBrowser(){
+
+//  if(browser) return
+
+//  console.log("Launching browser...")
+
+//  browser = await puppeteer.launch({
+//   headless:true,
+//   args:[
+//    "--no-sandbox",
+//    "--disable-setuid-sandbox",
+//    "--disable-dev-shm-usage",
+//    "--single-process",
+//    "--no-zygote"
+//   ]
+//  })
+
+//  page = await browser.newPage()
+
+//  await page.setViewport({
+//   width:1280,
+//   height:800
+//  })
+
+//  await page.setUserAgent(
+//   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/122 Safari/537.36"
+//  )
+
+//  await page.goto("https://chatgpt.com/",{
+//   waitUntil:"domcontentloaded"
+//  })
+
+//  await page.screenshot({path:"debug.png"})
+
+//  console.log("Browser ready")
+// }
+
+// /* ---------- SCRAPE RESPONSE ---------- */
+
+// async function getReply(){
+
+//  let previous=""
+//  let stable=0
+
+//  while(stable<5){
+
+//   const text = await page.evaluate(()=>{
+
+//    const blocks=document.querySelectorAll(
+//     '[data-message-author-role="assistant"]'
+//    )
+
+//    if(!blocks.length) return ""
+
+//    return blocks[blocks.length-1].innerText
+
+//   })
+
+//   if(text===previous){
+//    stable++
+//   }else{
+//    stable=0
+//   }
+
+//   previous=text
+
+//   await new Promise(r=>setTimeout(r,800))
+//  }
+
+//  return previous
+// }
+
+// /* ---------- CHAT ENDPOINT ---------- */
+
+// app.post("/chat", async(req,res)=>{
+
+//  if(busy){
+//   return res.json({reply:"AI busy"})
+//  }
+
+//  const {message} = req.body
+
+//  try{
+
+//   busy=true
+//   touch()
+
+//   await startBrowser()
+
+//   await page.waitForSelector("textarea",{timeout:60000})
+
+//   await page.click("textarea")
+
+//   await page.type("textarea",message,{
+//    delay:40+Math.random()*60
+//   })
+
+//   await page.keyboard.press("Enter")
+
+//   const reply = await getReply()
+
+//   busy=false
+
+//   res.json({reply})
+
+//  }catch(e){
+
+//   busy=false
+
+//   console.error("AUTOMATION ERROR:",e)
+
+//   res.json({reply:"automation error"})
+//  }
+// })
+
+// /* ---------- DESTROY SESSION ---------- */
+
+// app.post("/destroy", async(req,res)=>{
+
+//  try{
+
+//   if(browser){
+
+//    console.log("Destroying browser session")
+
+//    await browser.close()
+
+//    browser=null
+//    page=null
+//   }
+
+//   res.json({status:"destroyed"})
+
+//  }catch(e){
+
+//   console.log("Destroy error",e)
+
+//   res.json({status:"error"})
+//  }
+
+// })
+
+// /* ---------- HEALTH CHECK ---------- */
+
+// app.get("/ping",(req,res)=>{
+//  res.send("alive")
+// })
+
+// /* ---------- AUTO CLEANUP ---------- */
+
+// setInterval(async()=>{
+
+//  if(browser && Date.now()-lastActivity > 600000){
+
+//   console.log("Closing inactive browser")
+
+//   await browser.close()
+
+//   browser=null
+//   page=null
+
+//  }
+
+// },60000)
+
+// /* ---------- START SERVER ---------- */
+
+// app.listen(3000,()=>{
+//  console.log("Server running on port 3000")
+// })
+
+
+
+
+
+
+
 
 const express = require("express")
-const puppeteer = require("puppeteer-core")
-const puppeteerExtra = require("puppeteer-extra")
+const puppeteer = require("puppeteer-extra")
 const Stealth = require("puppeteer-extra-plugin-stealth")
 
-puppeteerExtra.use(Stealth())
+puppeteer.use(Stealth())
 
 const app = express()
 
@@ -14,11 +228,11 @@ app.use(express.static("public"))
 
 /* ---------- GLOBAL ERROR LOGGING ---------- */
 
-process.on("uncaughtException",err=>{
+process.on("uncaughtException", (err)=>{
  console.error("UNCAUGHT:",err)
 })
 
-process.on("unhandledRejection",err=>{
+process.on("unhandledRejection",(err)=>{
  console.error("UNHANDLED:",err)
 })
 
@@ -69,7 +283,7 @@ let busy=false
 let lastActivity=Date.now()
 
 function touch(){
- lastActivity=Date.now()
+ lastActivity = Date.now()
 }
 
 /* ---------- START BROWSER ---------- */
@@ -80,14 +294,12 @@ async function startBrowser(){
 
  sendStep(3,"Opening ChatGPT")
 
- browser = await puppeteerExtra.launch({
-  headless:true,
-  executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || "/usr/bin/chromium-browser",
+ browser = await puppeteer.launch({
+  headless:false,
   args:[
    "--no-sandbox",
    "--disable-setuid-sandbox",
    "--disable-dev-shm-usage",
-   "--disable-gpu",
    "--single-process",
    "--no-zygote"
   ]
@@ -105,46 +317,10 @@ async function startBrowser(){
  )
 
  await page.goto("https://chatgpt.com/",{
-  waitUntil:"networkidle2"
+  waitUntil:"domcontentloaded"
  })
 
- console.log("PAGE TITLE:",await page.title())
-
-}
-
-/* ---------- WAIT FOR CHAT INPUT ---------- */
-
-async function waitForChatInput(){
-
- for(let i=0;i<8;i++){
-
-  try{
-
-   await page.waitForSelector('div[contenteditable="true"]',{
-    visible:true,
-    timeout:5000
-   })
-
-   return true
-
-  }catch(e){
-
-   console.log("Chat input not ready, retrying...")
-
-   try{
-    console.log("Current page:",await page.title())
-   }catch(err){
-    console.log("Frame refreshed")
-   }
-
-   await new Promise(r=>setTimeout(r,2000))
-
-  }
-
- }
-
- throw new Error("Chat input never appeared")
-
+ console.log("Browser ready")
 }
 
 /* ---------- SCRAPE RESPONSE ---------- */
@@ -154,19 +330,15 @@ async function getReply(){
  let previous=""
  let stable=0
 
- while(stable<6){
+ while(stable<5){
 
   const text = await page.evaluate(()=>{
 
-   const msgs=[...document.querySelectorAll("article")]
+   const blocks=document.querySelectorAll('[data-message-author-role="assistant"]')
 
-   const assistant=msgs.filter(el=>{
-    return el.innerText && el.innerText.length>20
-   })
+   if(!blocks.length) return ""
 
-   if(!assistant.length) return ""
-
-   return assistant[assistant.length-1].innerText
+   return blocks[blocks.length-1].innerText
 
   })
 
@@ -178,7 +350,7 @@ async function getReply(){
 
   previous=text
 
-  await new Promise(r=>setTimeout(r,900))
+  await new Promise(r=>setTimeout(r,800))
 
  }
 
@@ -193,7 +365,7 @@ app.post("/chat",async(req,res)=>{
   return res.json({reply:"AI busy"})
  }
 
- const {message}=req.body
+ const {message} = req.body
 
  try{
 
@@ -204,12 +376,12 @@ app.post("/chat",async(req,res)=>{
 
   await startBrowser()
 
-  await waitForChatInput()
+  await page.waitForSelector("textarea",{timeout:60000})
 
-  await page.focus('div[contenteditable="true"]')
+  await page.click("textarea")
 
-  await page.keyboard.type(message,{
-   delay:40+Math.random()*50
+  await page.type("textarea",message,{
+   delay:40+Math.random()*60
   })
 
   sendStep(4,"Prompt injected")
@@ -277,7 +449,7 @@ app.get("/ping",(req,res)=>{
 
 setInterval(async()=>{
 
- if(browser && Date.now()-lastActivity>600000){
+ if(browser && Date.now()-lastActivity > 600000){
 
   console.log("Auto closing browser")
 
