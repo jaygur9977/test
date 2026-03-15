@@ -4,8 +4,7 @@
   "description": "",
   "main": "test.js",
   "scripts": {
-    "start": "node test.js",
-    "postinstall": "node node_modules/puppeteer/install.mjs"
+    "start": "node test.js"
   },
   "keywords": [],
   "author": "",
