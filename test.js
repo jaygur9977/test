@@ -1,260 +1,147 @@
+const express = require("express");
+const puppeteer = require("puppeteer-extra");
+const Stealth = require("puppeteer-extra-plugin-stealth");
 
+puppeteer.use(Stealth());
 
+const app = express();
+app.use(express.json());
+app.use(express.static("public"));
 
+/* ---------- STATE MANAGEMENT ---------- */
+let clients = [];
+let browser = null;
+let page = null;
+let busy = false;
 
-const express = require("express")
-const puppeteer = require("puppeteer-extra")
-const Stealth = require("puppeteer-extra-plugin-stealth")
-
-puppeteer.use(Stealth())
-
-const app = express()
-
-app.use(express.json())
-app.use(express.static("public"))
-
-/* ---------- GLOBAL ERROR LOGGING ---------- */
-
-process.on("uncaughtException", (err)=>{
- console.error("UNCAUGHT:",err)
-})
-
-process.on("unhandledRejection",(err)=>{
- console.error("UNHANDLED:",err)
-})
-
-app.use((req,res,next)=>{
- console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`)
- next()
-})
-
-/* ---------- SSE CLIENTS ---------- */
-
-let clients=[]
-
-function sendStep(step,message,error=false){
-
- const payload = JSON.stringify({
-  step,
-  message,
-  error
- })
-
- clients.forEach(c=>{
-  c.write(`data: ${payload}\n\n`)
- })
-
+function sendStep(step, message, error = false) {
+    const payload = JSON.stringify({ step, message, error });
+    clients.forEach(c => c.write(`data: ${payload}\n\n`));
 }
 
-/* ---------- EVENT STREAM ---------- */
+/* ---------- SSE ENDPOINT ---------- */
+app.get("/events", (req, res) => {
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache");
+    res.setHeader("Connection", "keep-alive");
+    clients.push(res);
+    req.on("close", () => {
+        clients = clients.filter(c => c !== res);
+    });
+});
 
-app.get("/events",(req,res)=>{
+/* ---------- BROWSER LOGIC ---------- */
+async function startBrowser() {
+    if (browser) return;
 
- res.setHeader("Content-Type","text/event-stream")
- res.setHeader("Cache-Control","no-cache")
- res.setHeader("Connection","keep-alive")
+    sendStep(3, "Opening Gemini");
+    const path = require('path');
 
- clients.push(res)
+browser = await puppeteer.launch({
+    headless: "new",
+    executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || null, // Render ke liye zaroori
+    args: [
+        "--no-sandbox",
+        "--disable-setuid-sandbox",
+        "--disable-dev-shm-usage",
+        "--single-process"
+    ]
+});
 
- req.on("close",()=>{
-  clients = clients.filter(c=>c!==res)
- })
+    page = await browser.newPage();
+    await page.setViewport({ width: 1280, height: 800 });
+    
+    // Set a realistic User Agent
+    await page.setUserAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36");
 
-})
-
-/* ---------- BROWSER STATE ---------- */
-
-let browser=null
-let page=null
-let busy=false
-let lastActivity=Date.now()
-
-function touch(){
- lastActivity = Date.now()
+    await page.goto("https://gemini.google.com/", { waitUntil: "networkidle2" });
+    console.log("Gemini is ready");
 }
 
-/* ---------- START BROWSER ---------- */
+async function getReply() {
+    let previous = "";
+    let stable = 0;
+    
+    // Gemini specific response selector
+    const selector = ".model-response-text";
 
-async function startBrowser(){
+    for (let i = 0; i < 30; i++) { // Max 30 seconds wait
+        const text = await page.evaluate((sel) => {
+            const elements = document.querySelectorAll(sel);
+            return elements.length ? elements[elements.length - 1].innerText : "";
+        }, selector);
 
- if(browser) return
+        if (text && text === previous && text.length > 0) {
+            stable++;
+        } else {
+            stable = 0;
+        }
 
- sendStep(3,"Opening ChatGPT")
-
- browser = await puppeteer.launch({
-  headless:true,
-  args:[
-   "--no-sandbox",
-   "--disable-setuid-sandbox",
-   "--disable-dev-shm-usage",
-   "--single-process",
-   "--no-zygote"
-  ]
- })
-
- page = await browser.newPage()
-
- await page.setViewport({
-  width:1280,
-  height:800
- })
-
- await page.setUserAgent(
-  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/122 Safari/537.36"
- )
-
- await page.goto("https://chatgpt.com/",{
-  waitUntil:"domcontentloaded"
- })
-
- console.log("Browser ready")
-}
-
-/* ---------- SCRAPE RESPONSE ---------- */
-
-async function getReply(){
-
- let previous=""
- let stable=0
-
- while(stable<5){
-
-  const text = await page.evaluate(()=>{
-
-   const blocks=document.querySelectorAll('[data-message-author-role="assistant"]')
-
-   if(!blocks.length) return ""
-
-   return blocks[blocks.length-1].innerText
-
-  })
-
-  if(text===previous){
-   stable++
-  }else{
-   stable=0
-  }
-
-  previous=text
-
-  await new Promise(r=>setTimeout(r,800))
-
- }
-
- return previous
+        if (stable >= 5) break; // Response is stable
+        previous = text;
+        await new Promise(r => setTimeout(r, 1000));
+    }
+    return previous;
 }
 
 /* ---------- CHAT ENDPOINT ---------- */
+app.post("/chat", async (req, res) => {
+    if (busy) return res.json({ reply: "AI is busy processing..." });
+    const { message } = req.body;
 
-app.post("/chat",async(req,res)=>{
+    try {
+        busy = true;
+        sendStep(2, "Prompt sent to server");
 
- if(busy){
-  return res.json({reply:"AI busy"})
- }
+        await startBrowser();
 
- const {message} = req.body
+        // 1. Wait for the Prompt Box (Quill Editor)
+        const promptSelector = 'div[role="textbox"][aria-label*="Gemini"]';
+        await page.waitForSelector(promptSelector, { timeout: 60000 });
 
- try{
+        // 2. Click and Type (Bypassing TrustedHTML by using Keyboard API)
+        await page.click(promptSelector);
+        
+        // Clear box first (just in case)
+        await page.keyboard.down('Control');
+        await page.keyboard.press('A');
+        await page.keyboard.up('Control');
+        await page.keyboard.press('Backspace');
 
-  busy=true
-  touch()
+        // Type the message
+        await page.keyboard.type(message, { delay: 20 });
+        sendStep(4, "Prompt injected successfully");
 
-  sendStep(2,"Prompt sent")
+        // 3. Click Send Button
+        const sendButton = 'button[aria-label*="Send"]';
+        await page.waitForSelector(sendButton + ':not([disabled])');
+        await page.click(sendButton);
 
-  await startBrowser()
+        sendStep(5, "Gemini is thinking...");
+        const reply = await getReply();
 
-  await page.waitForSelector("textarea",{timeout:60000})
+        sendStep(6, "Response captured");
+        busy = false;
+        res.json({ reply });
 
-  await page.click("textarea")
+    } catch (e) {
+        busy = false;
+        console.error("ERROR:", e);
+        sendStep("error", e.message, true);
+        res.json({ reply: "Error: " + e.message });
+    }
+});
 
-  await page.type("textarea",message,{
-   delay:40+Math.random()*60
-  })
+/* ---------- CLEANUP ---------- */
+app.post("/destroy", async (req, res) => {
+    if (browser) {
+        await browser.close();
+        browser = null;
+        page = null;
+    }
+    res.json({ status: "destroyed" });
+});
 
-  sendStep(4,"Prompt injected")
-
-  await page.keyboard.press("Enter")
-
-  sendStep(5,"Fetching result")
-
-  const reply = await getReply()
-
-  sendStep(6,"Output generated")
-
-  busy=false
-
-  res.json({reply})
-
- }catch(e){
-
-  busy=false
-
-  console.error("AUTOMATION ERROR:",e)
-
-  sendStep("error",e.message,true)
-
-  res.json({reply:"automation error"})
- }
-
-})
-
-/* ---------- DESTROY SESSION ---------- */
-
-app.post("/destroy",async(req,res)=>{
-
- try{
-
-  if(browser){
-
-   console.log("Destroying session")
-
-   await browser.close()
-
-   browser=null
-   page=null
-
-  }
-
-  res.json({status:"destroyed"})
-
- }catch(e){
-
-  console.log(e)
-
-  res.json({status:"error"})
- }
-
-})
-
-/* ---------- HEALTH CHECK ---------- */
-
-app.get("/ping",(req,res)=>{
- res.send("alive")
-})
-
-/* ---------- AUTO CLEANUP ---------- */
-
-setInterval(async()=>{
-
- if(browser && Date.now()-lastActivity > 600000){
-
-  console.log("Auto closing browser")
-
-  await browser.close()
-
-  browser=null
-  page=null
-
- }
-
-},60000)
-
-/* ---------- SERVER START ---------- */
-
-app.listen(3000,()=>{
-
- console.log("Server started")
-
- sendStep(1,"Server started")
-
-})
+app.listen(3000, () => {
+    console.log("Server running on http://localhost:3000");
+});
