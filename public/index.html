@@ -246,57 +246,39 @@ el.classList.add("active")
 }
 
 /* ---------- SEND PROMPT ---------- */
-/* ---------- SEND PROMPT ---------- */
-async function send() {
-    resetSteps();
 
-    const promptInput = document.getElementById("prompt");
-    const prompt = promptInput.value;
-    const output = document.getElementById("output");
+async function send(){
 
-    if (!prompt.trim()) {
-        alert("Please enter a prompt!");
-        return;
-    }
+resetSteps()
 
-    output.innerText = "Processing... Please wait.";
+const prompt=document.getElementById("prompt").value
+const output=document.getElementById("output")
 
-    try {
-        console.log("Sending prompt to backend:", prompt);
+output.innerText="processing..."
 
-        const res = await fetch("/chat", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify({ message: prompt })
-        });
+const res=await fetch("/chat",{
 
-        // Backend se data receive karein
-        const data = await res.json();
-        console.log("Backend Response:", data);
+method:"POST",
+headers:{
+"Content-Type":"application/json"
+},
+body:JSON.stringify({message:prompt})
 
-        // UI update karein
-        if (data.reply) {
-            output.innerText = data.reply;
-        } else {
-            output.innerText = "No reply received from AI.";
-        }
+})
 
-        /* Mark all steps as done */
-        for (let i = 1; i <= 6; i++) {
-            const el = document.getElementById("step" + i);
-            if (el) {
-                el.classList.remove("active", "pending");
-                el.classList.add("done");
-            }
-        }
+const data=await res.json()
 
-    } catch (err) {
-        console.error("Fetch Error:", err);
-        output.innerText = "Error: " + err.message;
-        document.getElementById("errorBox").innerText = "Frontend Error: " + err.message;
-    }
+output.innerText=data.reply
+
+/* mark all done */
+
+for(let i=1;i<=6;i++){
+
+document.getElementById("step"+i).classList.remove("active")
+document.getElementById("step"+i).classList.add("done")
+
+}
+
 }
 
 /* ---------- DESTROY SESSION ---------- */
